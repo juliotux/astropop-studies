@@ -5,6 +5,7 @@ from astropy.stats import gaussian_fwhm_to_sigma
 from astropy.table import Table
 from scipy.ndimage.filters import convolve
 from astropop.logger import logger
+import warnings
 
 
 def stetson_find_peaks(h, hmin, mask, pixels, middle, n_x, n_y):
@@ -82,7 +83,10 @@ def stetson_sharpness(temp, middle, mask, d):
     mask = np.array(mask)  # work with a copy
     mask[middle, middle] = 0
     sharp = temp[middle, middle] - (np.sum(mask*temp))/np.sum(mask)
-    return sharp/d
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)
+        sharp /= d
+    return sharp
 
 
 def stetson_roundness(temp, c1):
