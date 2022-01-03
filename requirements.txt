@@ -1,0 +1,6 @@
+photutils
+astropy
+numpy
+scipy
+matplotlib
+ipympl
