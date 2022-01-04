@@ -8,6 +8,32 @@ from astropop.logger import logger
 import warnings
 
 
+def symmetry_roundness(chunk, nhalf):
+    """Compute the folding roundness."""
+    # Quads
+    # 3 3 4 4 4
+    # 3 3 4 4 4
+    # 3 3 x 1 1
+    # 2 2 2 1 1
+    # 2 2 2 1 1
+    chunk = np.array(chunk)
+    chunk[nhalf, nhalf] = 0  # copy and setcentral pixel to 0
+
+    q1 = chunk[nhalf:, nhalf+1:].sum()
+    q2 = chunk[nhalf+1:, :nhalf+1].sum()
+    q3 = chunk[:nhalf+1, :nhalf].sum()
+    q4 = chunk[:nhalf, nhalf:].sum()
+
+    sum2 = -q1+q2-q3+q4
+    sum4 = q1+q2+q3+q4
+
+    # ignore divide-by-zero RuntimeWarning
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)
+        sround = 2.0 * sum2 / sum4
+    return sround
+
+
 def stetson_find_peaks(h, hmin, mask, pixels, middle, n_x, n_y):
     """Stetson way to find peaks."""
     mask = np.array(mask)  # work with a copy
