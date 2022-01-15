@@ -11,9 +11,10 @@ def gen_bkg(size, level, rdnoise, rng_seed=123, dtype='f8'):
     im = np.ones(size, dtype)*level
 
     # reate the gaussian read noise image to sum
-    with NumpyRNGContext(rng_seed):
-        noise = np.random.normal(loc=0, scale=rdnoise, size=size)
-    im += noise
+    if rdnoise > 0:
+        with NumpyRNGContext(rng_seed):
+            noise = np.random.normal(loc=0, scale=rdnoise, size=size)
+        im += noise
 
     # poisonic not needed?
     return im
