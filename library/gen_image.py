@@ -1,7 +1,6 @@
 import numpy as np
 from astropy.utils import NumpyRNGContext
-from astropop.math.moffat import moffat_2d
-from astropop.math.gaussian import gaussian_2d
+from astropop.math.models import MoffatEquations, GaussianEquations
 from astropop.py_utils import check_number
 
 
@@ -38,7 +37,8 @@ def gen_stars_moffat(size, x, y, flux, fwhm):
     im = np.zeros(size)
     grid_y, grid_x = np.indices(size)
     for xi, yi, fi in zip(x, y, flux):
-        im += moffat_2d(grid_x, grid_y, xi, yi, alpha, beta, fi, 0)
+        im += MoffatEquations.model_2d(grid_x, grid_y, xi, yi,
+                                       width=alpha, power=beta, flux=fi, sky=0)
 
     return im
 
@@ -63,7 +63,9 @@ def gen_stars_gaussian(size, x, y, flux, sigma, theta):
         theta = [theta]*len(x)
 
     for xi, yi, fi, sxi, syi, ti in zip(x, y, flux, sigma_x, sigma_y, theta):
-        im += gaussian_2d(grid_x, grid_y, xi, yi, sxi, syi, ti, fi, 0)
+        im += GaussianEquations.model_2d(grid_x, grid_y, xi, yi, flux=fi,
+                                         sigma_x=sxi, sigma_y=syi, theta=ti,
+                                         sky=0)
 
     return im
 
