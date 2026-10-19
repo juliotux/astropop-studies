@@ -43,10 +43,18 @@ def gen_stars_moffat(size, x, y, flux, fwhm):
     return im
 
 
-def gen_stars_gaussian(size, x, y, flux, sigma, theta):
-    """Generate stars image to add to background."""
+def gen_stars_gaussian(size, x, y, flux, sigma, theta, truncate=None):
+    """Render Gaussians, optionally restricting each star to a local stamp.
+
+    ``truncate`` is the bounding radius in Gaussian standard deviations. None
+    retains full-image evaluation. Eight omits tails below exp(-32) of the peak;
+    rotated elliptical profiles use their projected widths for the bounds.
+    """
     im = np.zeros(size)
-    grid_y, grid_x = np.indices(size)
+    if truncate is None:
+        grid_y, grid_x = np.indices(size)
+    elif not np.isfinite(truncate) or truncate <= 0:
+        raise ValueError('truncate must be finite and positive')
 
     try:
         sigma_x, sigma_y = sigma
@@ -63,15 +71,34 @@ def gen_stars_gaussian(size, x, y, flux, sigma, theta):
         theta = [theta]*len(x)
 
     for xi, yi, fi, sxi, syi, ti in zip(x, y, flux, sigma_x, sigma_y, theta):
-        im += GaussianEquations.model_2d(grid_x, grid_y, xi, yi, flux=fi,
-                                         sigma_x=sxi, sigma_y=syi, theta=ti,
-                                         sky=0)
+        if truncate is None:
+            target = im
+        else:
+            # Project the rotated Gaussian covariance onto the detector axes.
+            angle = np.radians(ti)
+            rx = truncate*np.hypot(sxi*np.cos(angle), syi*np.sin(angle))
+            ry = truncate*np.hypot(sxi*np.sin(angle), syi*np.cos(angle))
+            left = max(0, int(np.ceil(xi-rx)))
+            right = min(size[1], int(np.floor(xi+rx))+1)
+            bottom = max(0, int(np.ceil(yi-ry)))
+            top = min(size[0], int(np.floor(yi+ry))+1)
+            if left >= right or bottom >= top:
+                continue
+            grid_y, grid_x = np.ogrid[bottom:top, left:right]
+            target = im[bottom:top, left:right]
+        target += GaussianEquations.model_2d(grid_x, grid_y, xi, yi, flux=fi,
+                                              sigma_x=sxi, sigma_y=syi,
+                                              theta=ti, sky=0)
 
     return im
 
 
 def gen_image(size, x, y, flux, sky, rdnoise, model='gaussian', **kwargs):
-    """Generate a full image of stars with noise."""
+    """Generate a full image of stars with noise.
+
+    For Gaussian stars, ``truncate`` optionally bounds the rendering stamps in
+    standard deviations; the default None evaluates the complete image.
+    """
     im = gen_bkg(size, sky, rdnoise)
 
     if model == 'moffat':
@@ -80,7 +107,8 @@ def gen_image(size, x, y, flux, sky, rdnoise, model='gaussian', **kwargs):
     if model == 'gaussian':
         sigma = kwargs.pop('sigma', 2.0)
         theta = kwargs.pop('theta', 0)
-        im += gen_stars_gaussian(size, x, y, flux, sigma, theta)
+        im += gen_stars_gaussian(size, x, y, flux, sigma, theta,
+                                 truncate=kwargs.pop('truncate', None))
 
     # can pass the poisson noise
     if not kwargs.get('skip_poisson', False):
